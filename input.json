@@ -1,62 +1,50 @@
 {
-    "name": "test",
-    "esdl_type" : "EConnection",
-    "description" : "this is a test description",
-    "relevant_links" : [
+    "name": "Renewable_Service",
+    "esdl_type": "PVInstallation",
+    "description": "Simulates solar generation and handles curtailment.",
+    "relevant_links": [],
+    "calculations": [
         {
-            "name" : "test link",
-            "url" : "https://example.com/test",
-            "description" : "this is a test link"
-        },
-        {
-            "name" : "another test link",
-            "url" : "https://example.com/anothertest",
-            "description" : "this is another link"
-        }
-    ],
-    "calculations" : [
-        {
-            "name": "test calculation",
-            "description" : "test",
-            "time_period_in_seconds" : 900,
-            "offset_in_seconds" : 0,
-            "inputs" : [
+            "name": "day_ahead_renewables",
+            "description": "Forecasts generation for the next day.",
+            "time_period_in_seconds": 86400,
+            "offset_in_seconds": 0,
+            "inputs": [],
+            "outputs": [
                 {
-                    "name" : "input1",
-                    "esdl_type" : "PVInstallation",
-                    "data_type" : "DOUBLE",
-                    "description" : "input 1 description",
-                    "unit" : "K"
-                }
-            ],
-            "outputs" : [
-                {
-                    "name" : "output1",
-                    "data_type" : "DOUBLE",
-                    "description" : "output 1 description",
-                    "unit" : "W"
-                },
-                {
-                    "name" : "output2",
-                    "data_type" : "DOUBLE",
-                    "description" : "output 2 description",
-                    "unit" : "W"
+                    "name": "planned_generation_DA",
+                    "data_type": "STRING",
+                    "description": "JSON string of forecasted solar generation.",
+                    "unit": "JSON"
                 }
             ]
         },
         {
-            "name": "test calculation 2",
-            "description" : "test",
+            "name": "real_time_renewables",
             "time_period_in_seconds" : 900,
-            "offset_in_seconds" : 100,
-            "inputs" : [
-            ],
-            "outputs" : [
+            "offset_in_seconds" : 0,
+            "description": "Calculates actual power subject to EMS constraints.",
+            "inputs": [
                 {
-                    "name" : "output3",
-                    "data_type" : "DOUBLE",
-                    "description" : "output 3 description",
-                    "unit" : "W"
+                    "name": "current_max_power_limit",
+                    "esdl_type": "ElectricityNetwork",
+                    "data_type": "DOUBLE",
+                    "description": "Curtailment limit from EMS.",
+                    "unit": "W"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "potential_available_generation_ID",
+                    "data_type": "DOUBLE",
+                    "description": "Maximum generation possible from weather.",
+                    "unit": "W"
+                },
+                {
+                    "name": "supplied_power_ID",
+                    "data_type": "DOUBLE",
+                    "description": "Actual generation after curtailment.",
+                    "unit": "W"
                 }
             ]
         }
