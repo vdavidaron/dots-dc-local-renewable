@@ -15,11 +15,7 @@ Forecasts generation for the next day.
 |planned_generation_DA|STRING|JSON|JSON string of forecasted solar generation.|
 ### real_time_renewables 
 
-Calculates actual power subject to EMS constraints.
-#### Input parameters
-|Name            |esdl_type            |data_type            |unit            |description            |
-|----------------|---------------------|---------------------|----------------|-----------------------|
-|current_max_power_limit|ElectricityNetwork|DOUBLE|W|Curtailment limit from EMS.|
+Calculates actual power generation.
 #### Output values
 |Name             |data_type             |unit             |description             |
 |-----------------|----------------------|-----------------|------------------------|

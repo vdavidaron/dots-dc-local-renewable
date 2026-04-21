@@ -3,10 +3,10 @@ from typing import List
 
 @dataclass
 class DayAheadRenewablesOutput:
-    planned_generation_da : str | None = None
+    planned_generation_DA : str | None = None
 
 @dataclass
 class RealTimeRenewablesOutput:
-    potential_available_generation_id : float | None = None
-    supplied_power_id : float | None = None
+    potential_available_generation_ID : float | None = None
+    supplied_power_ID : float | None = None
 

@@ -23,7 +23,7 @@ class RenewableServiceBase(HelicsSimulationExecutor):
         
             PublicationDescription(global_flag=True, 
                                     esdl_type="PVInstallation",
-                                    output_name="planned_generation_da",
+                                    output_name="planned_generation_DA",
                                     output_unit="JSON", 
                                     data_type=h.HelicsDataType.STRING),
         ]
@@ -43,21 +43,17 @@ class RenewableServiceBase(HelicsSimulationExecutor):
         self.real_time_renewables_period_seconds = 900
         real_time_renewables_inputs = [
         
-            SubscriptionDescription(esdl_type="ElectricityNetwork", 
-                                    input_name="current_max_power_limit", 
-                                    input_unit="W", 
-                                    input_type=h.HelicsDataType.DOUBLE),
         ]
         real_time_renewables_outputs = [
         
             PublicationDescription(global_flag=True, 
                                     esdl_type="PVInstallation",
-                                    output_name="potential_available_generation_id",
+                                    output_name="potential_available_generation_ID",
                                     output_unit="W", 
                                     data_type=h.HelicsDataType.DOUBLE),
             PublicationDescription(global_flag=True, 
                                     esdl_type="PVInstallation",
-                                    output_name="supplied_power_id",
+                                    output_name="supplied_power_ID",
                                     output_unit="W", 
                                     data_type=h.HelicsDataType.DOUBLE),
         ]
