@@ -118,6 +118,9 @@ class RenewableService(RenewableServiceBase):
             "timestamps": [(simulation_time + timedelta(minutes=15*i)).isoformat() for i in range(96)],
             "generation_w": forecast
         })
+
+        self.influx_connector.set_time_step_data_point(esdl_id, "planned_generation_DA", simulation_time, payload)
+
         return DayAheadRenewablesOutput(planned_generation_DA=payload)
 
     def real_time_renewables(self, param_dict, simulation_time, time_step_number, esdl_id, energy_system):
