@@ -18,24 +18,30 @@ from renewable_service_dataclasses import DayAheadRenewablesOutput, RealTimeRene
 
 LOGGER = logging.getLogger(__name__)
 
+def _extract_influxdb_profile(asset):
+    if not hasattr(asset, 'port'): return None
+    for p in asset.port:
+        if hasattr(p, 'profile'):
+            for prof in p.profile:
+                if prof.eClass.name == 'InfluxDBProfile':
+                    return prof
+    return None
+
+def _parse_filters(filters_str):
+    if not filters_str: return []
+    parsed = []
+    pairs = [p.strip() for p in filters_str.split(' AND ')]
+    for pair in pairs:
+        if '=' in pair:
+            k, v = pair.split('=', 1)
+            parsed.append({"tag": k.strip(), "value": v.strip().strip("'").strip('"')})
+    return parsed
+
 class RenewableService(RenewableServiceBase): 
 
     def init_calculation_service(self, energy_system: EnergySystem):
         super().init_calculation_service(energy_system)
         LOGGER.info("Initializing Renewable Service (Realistic v2)...")
-
-        # InfluxDB
-        self.influx_host = os.environ.get('INFLUXDB_HOST', 'influxdb')
-        self.influx_port = int(os.environ.get('INFLUXDB_PORT', 8086))
-        self.read_database = os.environ.get('INFLUXDB_NAME', 'GO-e')
-        self.measurement_name = "historical_solar_irradiance"
-        
-        self.influx_client = InfluxDBClient(
-            host=self.influx_host, port=self.influx_port, 
-            username=os.environ.get('INFLUXDB_USER', 'admin'), 
-            password=os.environ.get('INFLUXDB_PASSWORD', 'admin'), 
-            database=self.read_database
-        )
 
         self.pv_properties = {}
         self.prefetched_irradiance = {}
@@ -46,6 +52,7 @@ class RenewableService(RenewableServiceBase):
             surface_area = 5000.0
             panel_eff = 0.20
             inv_eff = 0.98
+            asset_name = "Unknown PV"
             
             esdl_pv = self.esdl_obj_mapping.get(esdl_id)
             if esdl_pv:
@@ -57,34 +64,99 @@ class RenewableService(RenewableServiceBase):
                     panel_eff = float(esdl_pv.panelEfficiency)
                 if getattr(esdl_pv, 'inverterEfficiency', 0.0) > 0:
                     inv_eff = float(esdl_pv.inverterEfficiency)
+                if getattr(esdl_pv, 'name', None):
+                    asset_name = esdl_pv.name
             
+            profile = _extract_influxdb_profile(esdl_pv) if esdl_pv else None
+            if profile:
+                influx_host = os.environ.get('INFLUXDB_HOST') or profile.host or 'influxdb'
+                influx_port = int(os.environ.get('INFLUXDB_PORT') or profile.port or 8086)
+                influx_db   = os.environ.get('INFLUXDB_NAME') or profile.database or 'GO-e'
+                measurement = profile.measurement
+                field       = profile.field
+                multiplier  = float(profile.multiplier) if profile.multiplier is not None else 1.0
+                filters     = _parse_filters(profile.filters)
+                LOGGER.info(
+                    f"[ESDL Profile] '{asset_name}': host={influx_host}:{influx_port} "
+                    f"db={influx_db} measurement={measurement} field={field} "
+                    f"filters={filters} multiplier={multiplier}"
+                )
+            else:
+                influx_host = os.environ.get('INFLUXDB_HOST', 'influxdb')
+                influx_port = int(os.environ.get('INFLUXDB_PORT', 8086))
+                influx_db   = os.environ.get('INFLUXDB_NAME', 'GO-e')
+                measurement = 'historical_solar_irradiance'
+                field       = 'Irradiance_W_m2'
+                multiplier  = 1.0
+                filters     = [{"tag": "name", "value": asset_name}]
+                LOGGER.warning(f"[ESDL Profile] No InfluxDBProfile found for '{asset_name}' — using defaults.")
+
             self.pv_properties[esdl_id] = {
                 "capacity_w": capacity_w,
                 "surface_area": surface_area,
                 "panel_eff": panel_eff,
-                "inverter_eff": inv_eff
+                "inverter_eff": inv_eff,
+                "name": asset_name,
+                "influx_host": influx_host,
+                "influx_port": influx_port,
+                "influx_db": influx_db,
+                "measurement": measurement,
+                "field": field,
+                "multiplier": multiplier,
+                "filters": filters
             }
             self.prefetched_irradiance[esdl_id] = {'timestamps': [], 'values': []}
-            LOGGER.info(f"[ESDL] PV {esdl_id}: {capacity_w/1e3:.0f}kW, {surface_area}m2")
+            LOGGER.info(f"[ESDL] PV {esdl_id} ('{asset_name}'): {capacity_w/1e3:.0f}kW, {surface_area}m2")
 
         self._prefetch_irradiance()
         
     def _prefetch_irradiance(self):
-        try:
-            start = self.simulator_configuration.start_time
-            if start.tzinfo is None: start = start.replace(tzinfo=timezone.utc)
-            stop = start + timedelta(seconds=self.simulator_configuration.simulation_duration_in_seconds + 86400)
+        start = self.simulator_configuration.start_time
+        if start.tzinfo is None: start = start.replace(tzinfo=timezone.utc)
+        stop = start + timedelta(seconds=self.simulator_configuration.simulation_duration_in_seconds + 86400)
+        start_str = start.strftime('%Y-%m-%dT%H:%M:%SZ')
+        stop_str  = stop.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        clients = {}
+        for esdl_id, props in self.pv_properties.items():
+            conn_key = (props['influx_host'], props['influx_port'], props['influx_db'])
+            if conn_key not in clients:
+                try:
+                    clients[conn_key] = InfluxDBClient(
+                        host=props['influx_host'], port=props['influx_port'],
+                        username=os.environ.get('INFLUXDB_USER', 'admin'),
+                        password=os.environ.get('INFLUXDB_PASSWORD', 'admin'),
+                        database=props['influx_db']
+                    )
+                except Exception as e:
+                    LOGGER.warning(f"Could not create InfluxDB client for {conn_key}: {e}")
+                    continue
             
-            query = f'SELECT "Irradiance_W_m2", "esdl_id" FROM "{self.measurement_name}" WHERE time >= \'{start.isoformat()}\' AND time <= \'{stop.isoformat()}\''
-            result = self.influx_client.query(query)
-            for point in result.get_points():
-                eid = point.get('esdl_id')
-                if eid in self.prefetched_irradiance:
-                    dt = datetime.fromisoformat(point.get('time').replace('Z', '+00:00'))
-                    self.prefetched_irradiance[eid]['timestamps'].append(dt)
-                    self.prefetched_irradiance[eid]['values'].append(point.get('Irradiance_W_m2'))
-        except Exception as e:
-            LOGGER.warning(f"Solar InfluxDB pre-fetch skipped: {e}")
+            client = clients[conn_key]
+            measurement = props['measurement']
+            field = props['field']
+            multiplier = props['multiplier']
+            filters = props['filters']
+
+            where_parts = [f"time >= '{start_str}'", f"time <= '{stop_str}'"]
+            for f in filters:
+                where_parts.append(f"\"{f['tag']}\"='{f['value']}'")
+            where_clause = " AND ".join(where_parts)
+
+            query = f'SELECT "{field}" FROM "{measurement}" WHERE {where_clause}'
+            try:
+                result = client.query(query)
+                points_found = 0
+                for point in result.get_points():
+                    raw_val = point.get(field)
+                    if raw_val is None: continue
+                    dt = datetime.fromisoformat(point['time'].replace('Z', '+00:00'))
+                    self.prefetched_irradiance[esdl_id]['timestamps'].append(dt)
+                    self.prefetched_irradiance[esdl_id]['values'].append(float(raw_val) * multiplier)
+                    points_found += 1
+                LOGGER.info(f"Pre-fetched {points_found} irradiance points for {esdl_id}.")
+            except Exception as e:
+                LOGGER.warning(f"Solar InfluxDB pre-fetch failed for {esdl_id}: {e}")
 
     def _get_irradiance(self, esdl_id, t):
         if t.tzinfo is None: t = t.replace(tzinfo=timezone.utc)
@@ -144,9 +216,7 @@ class RenewableService(RenewableServiceBase):
         )
 
     def __del__(self):
-        if hasattr(self, 'influx_client'):
-            try: self.influx_client.close()
-            except: pass
+        pass
 
 if __name__ == "__main__":
     executor = RenewableService()

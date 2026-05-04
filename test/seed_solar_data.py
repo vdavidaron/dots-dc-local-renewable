@@ -25,8 +25,8 @@ client.create_database(database_name)
 csv_file_path = "ClimateGroningen.csv"
 target_column = "Irradiance_[W/m^2]"
 measurement_name = "historical_solar_irradiance"
-# MATCH THIS TO YOUR POWERPLANT ID IN THE ESDL
-esdl_id = "b457b55f-2407-4a90-9f1d-30ac1e8bd4d4" 
+asset_name = "Local RES" # Using Name instead of ID for stability
+
 
 # Adjust the year to match your simulation start year
 simulation_start_year = 2023
@@ -44,7 +44,6 @@ try:
 
         for row in reader:
             raw_value = row[target_column]
-            print(row)
             clean_value = float(raw_value)
 
             current_time = simulation_start_date + timedelta(hours=hour_index)
@@ -55,7 +54,7 @@ try:
                     "measurement": measurement_name,
                     "time": t.strftime('%Y-%m-%dT%H:%M:%SZ'),
                     "tags": {
-                        "esdl_id": esdl_id
+                        "name": asset_name
                     },
                     "fields": {
                         "Irradiance_W_m2": clean_value
@@ -68,7 +67,7 @@ try:
     # --- 4. WRITE TO DATABASE ---
     print(f"Prepared {len(data_points)} points. Writing to InfluxDB...")
     client.write_points(data_points, batch_size=1000)
-    print(f"✅ Successfully saved data with tag esdl_id='{esdl_id}'")
+    print(f"✅ Successfully saved data with tag name='{asset_name}'")
 
 except FileNotFoundError:
     print(f"❌ Error: Could not find '{csv_file_path}'.")
