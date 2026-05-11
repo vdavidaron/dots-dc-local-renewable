@@ -39,6 +39,13 @@ def _parse_filters(filters_str):
 
 class RenewableService(RenewableServiceBase): 
 
+    def __init__(self):
+        super().__init__()
+        for calc in self.calculations:
+            if calc.helics_value_federate_info.calculation_name == "day_ahead_renewables":
+                calc.helics_value_federate_info.offset = 1
+                LOGGER.info("Adjusted day_ahead_renewables offset to 1s for early publication.")
+
     def init_calculation_service(self, energy_system: EnergySystem):
         super().init_calculation_service(energy_system)
         LOGGER.info("Initializing Renewable Service (Realistic v2)...")
