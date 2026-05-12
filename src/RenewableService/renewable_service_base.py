@@ -24,8 +24,8 @@ class RenewableServiceBase(HelicsSimulationExecutor):
             PublicationDescription(global_flag=True, 
                                     esdl_type="PVInstallation",
                                     output_name="planned_generation_DA",
-                                    output_unit="JSON", 
-                                    data_type=h.HelicsDataType.STRING),
+                                    output_unit="VECTOR", 
+                                    data_type=h.HelicsDataType.VECTOR),
         ]
         day_ahead_renewables_information = HelicsCalculationInformation(
             time_period_in_seconds=86400,

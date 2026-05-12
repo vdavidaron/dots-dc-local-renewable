@@ -13,9 +13,9 @@
             "outputs": [
                 {
                     "name": "planned_generation_DA",
-                    "data_type": "STRING",
+                    "data_type": "VECTOR",
                     "description": "JSON string of forecasted solar generation.",
-                    "unit": "JSON"
+                    "unit": "VECTOR"
                 }
             ]
         },

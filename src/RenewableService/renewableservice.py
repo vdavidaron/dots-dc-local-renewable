@@ -48,7 +48,7 @@ class RenewableService(RenewableServiceBase):
 
     def init_calculation_service(self, energy_system: EnergySystem):
         super().init_calculation_service(energy_system)
-        LOGGER.info("Initializing Renewable Service (Realistic v2)...")
+        LOGGER.info("Initializing Renewable Service ...")
 
         self.pv_properties = {}
         self.prefetched_irradiance = {}
@@ -193,14 +193,9 @@ class RenewableService(RenewableServiceBase):
             irrad = self._get_irradiance(esdl_id, t)
             forecast.append(self.calculate_production_w(esdl_id, irrad))
 
-        payload = json.dumps({
-            "timestamps": [(simulation_time + timedelta(minutes=15*i)).isoformat() for i in range(96)],
-            "generation_w": forecast
-        })
+        self.influx_connector.set_time_step_data_point(esdl_id, "planned_generation_DA", simulation_time, json.dumps(forecast))
 
-        self.influx_connector.set_time_step_data_point(esdl_id, "planned_generation_DA", simulation_time, payload)
-
-        return DayAheadRenewablesOutput(planned_generation_DA=payload)
+        return DayAheadRenewablesOutput(planned_generation_DA=forecast)
 
     def real_time_renewables(self, param_dict, simulation_time, time_step_number, esdl_id, energy_system):
         # We don't block on this input

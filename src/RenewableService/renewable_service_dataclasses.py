@@ -3,7 +3,7 @@ from typing import List
 
 @dataclass
 class DayAheadRenewablesOutput:
-    planned_generation_DA : str | None = None
+    planned_generation_DA : list[float] | None = None
 
 @dataclass
 class RealTimeRenewablesOutput:
