@@ -39,13 +39,10 @@ class RenewableServiceBase(HelicsSimulationExecutor):
             calculation_function=self.day_ahead_renewables
         )
         self.add_calculation(day_ahead_renewables_information)
-        # Calculation: real_time_renewables
-        self.real_time_renewables_period_seconds = 900
-        real_time_renewables_inputs = [
-        
-        ]
-        real_time_renewables_outputs = [
-        
+        # Calculation: renewable_state
+        self.renewable_state_period_seconds = 900
+        renewable_state_inputs = []
+        renewable_state_outputs = [
             PublicationDescription(global_flag=True, 
                                     esdl_type="PVInstallation",
                                     output_name="potential_available_generation_ID",
@@ -57,18 +54,37 @@ class RenewableServiceBase(HelicsSimulationExecutor):
                                     output_unit="W", 
                                     data_type=h.HelicsDataType.DOUBLE),
         ]
-        real_time_renewables_information = HelicsCalculationInformation(
+        renewable_state_information = HelicsCalculationInformation(
             time_period_in_seconds=900,
             offset=0, 
             uninterruptible=False, 
             wait_for_current_time_update=False, 
             terminate_on_error=True, 
-            calculation_name="real_time_renewables", 
-            inputs=real_time_renewables_inputs, 
-            outputs=real_time_renewables_outputs, 
-            calculation_function=self.real_time_renewables
+            calculation_name="renewable_state", 
+            inputs=renewable_state_inputs, 
+            outputs=renewable_state_outputs, 
+            calculation_function=self.renewable_state
         )
-        self.add_calculation(real_time_renewables_information)
+        self.add_calculation(renewable_state_information)
+
+        # Calculation: renewable_dispatch
+        self.renewable_dispatch_period_seconds = 900
+        renewable_dispatch_inputs = [
+            SubscriptionDescription(esdl_type="ElectricityNetwork", input_name="current_max_power_limit", input_unit="W", input_type=h.HelicsDataType.DOUBLE),
+        ]
+        renewable_dispatch_outputs = []
+        renewable_dispatch_information = HelicsCalculationInformation(
+            time_period_in_seconds=900,
+            offset=0, 
+            uninterruptible=False, 
+            wait_for_current_time_update=False, 
+            terminate_on_error=True, 
+            calculation_name="renewable_dispatch", 
+            inputs=renewable_dispatch_inputs, 
+            outputs=renewable_dispatch_outputs, 
+            calculation_function=self.renewable_dispatch
+        )
+        self.add_calculation(renewable_dispatch_information)
 
     def init_calculation_service(self, energy_system: EnergySystem):
         all_esdl_objs = EsdlHelperFunctions.get_all_esdl_objects_from_type(energy_system.eAllContents(), PVInstallation)
@@ -80,6 +96,8 @@ class RenewableServiceBase(HelicsSimulationExecutor):
     def day_ahead_renewables(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         pass
     
-    def real_time_renewables(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+    def renewable_state(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         pass
-    
+
+    def renewable_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        pass

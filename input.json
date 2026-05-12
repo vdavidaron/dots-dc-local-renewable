@@ -14,25 +14,17 @@
                 {
                     "name": "planned_generation_DA",
                     "data_type": "VECTOR",
-                    "description": "JSON string of forecasted solar generation.",
+                    "description": "96-step vector of forecasted solar generation.",
                     "unit": "VECTOR"
                 }
             ]
         },
         {
-            "name": "real_time_renewables",
-            "time_period_in_seconds" : 900,
-            "offset_in_seconds" : 0,
-            "description": "Calculates actual power subject to EMS constraints.",
-            "inputs": [
-                {
-                    "name": "current_max_power_limit",
-                    "esdl_type": "ElectricityNetwork",
-                    "data_type": "DOUBLE",
-                    "description": "Curtailment limit from EMS.",
-                    "unit": "W"
-                }
-            ],
+            "name": "renewable_state",
+            "time_period_in_seconds": 900,
+            "offset_in_seconds": 0,
+            "description": "Publishes PV potential and supplied power.",
+            "inputs": [],
             "outputs": [
                 {
                     "name": "potential_available_generation_ID",
@@ -47,6 +39,22 @@
                     "unit": "W"
                 }
             ]
+        },
+        {
+            "name": "renewable_dispatch",
+            "time_period_in_seconds": 900,
+            "offset_in_seconds": 0,
+            "description": "Consumes the curtailment limit from the EMS.",
+            "inputs": [
+                {
+                    "name": "current_max_power_limit",
+                    "esdl_type": "ElectricityNetwork",
+                    "data_type": "DOUBLE",
+                    "description": "Curtailment limit from EMS.",
+                    "unit": "W"
+                }
+            ],
+            "outputs": []
         }
     ]
 }
