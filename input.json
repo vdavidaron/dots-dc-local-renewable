@@ -8,7 +8,7 @@
             "name": "day_ahead_renewables",
             "description": "Forecasts generation for the next day.",
             "time_period_in_seconds": 86400,
-            "offset_in_seconds": 0,
+            "offset_in_seconds": 1,
             "inputs": [],
             "outputs": [
                 {
@@ -43,7 +43,7 @@
         {
             "name": "renewable_dispatch",
             "time_period_in_seconds": 900,
-            "offset_in_seconds": 0,
+            "offset_in_seconds": 20,
             "description": "Consumes the curtailment limit from the EMS.",
             "inputs": [
                 {
