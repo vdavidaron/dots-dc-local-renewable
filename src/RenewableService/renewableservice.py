@@ -5,6 +5,15 @@ import logging
 import random
 import json
 import bisect
+import requests
+
+# Bound InfluxDB HTTP latency to prevent long-run accumulating-buffer hangs.
+_orig_request = requests.Session.request
+def _patched_request(self, method, url, **kwargs):
+    if 'timeout' not in kwargs or kwargs['timeout'] is None:
+        kwargs['timeout'] = 5.0
+    return _orig_request(self, method, url, **kwargs)
+requests.Session.request = _patched_request
 
 from esdl import EnergySystem
 import helics as h
@@ -195,10 +204,20 @@ class RenewableService(RenewableServiceBase):
 
         return DayAheadRenewablesOutput(planned_generation_DA=forecast)
 
+    # Finite sentinel for "no curtailment". Must mirror the value the
+    # Network Balancer publishes (PV_CURTAIL_UNCAPPED in networkbalancerservice.py).
+    # InfluxDB line protocol does not accept IEEE-754 inf as a numeric field
+    # value; using a large finite number avoids silent write failures that
+    # terminate the federate with `terminate_on_error=True`.
+    _NO_CURTAILMENT = 1.0e9
+
     def renewable_state(self, param_dict, simulation_time, time_step_number, esdl_id, energy_system):
         """Publishes PV state using the last-received curtailment limit."""
-        # Use the curtailment limit stored by renewable_dispatch (defaults to inf = no curtailment)
-        limit_w = self._curtailment_limit.get(esdl_id, float('inf'))
+        # Use the curtailment limit stored by renewable_dispatch (default = effectively no curtailment).
+        limit_w = self._curtailment_limit.get(esdl_id, self._NO_CURTAILMENT)
+        # Defensive: reject non-finite inputs from the bus (legacy publishers).
+        if not math.isfinite(limit_w):
+            limit_w = self._NO_CURTAILMENT
 
         irrad = self._get_irradiance(esdl_id, simulation_time)
         potential_w = self.calculate_production_w(esdl_id, irrad, simulation_time)
@@ -207,7 +226,20 @@ class RenewableService(RenewableServiceBase):
         self.influx_connector.set_time_step_data_point(esdl_id, "Irradiance_W_m2", simulation_time, irrad)
         self.influx_connector.set_time_step_data_point(esdl_id, "Potential_Generation_W", simulation_time, potential_w)
         self.influx_connector.set_time_step_data_point(esdl_id, "Supplied_Power_W", simulation_time, supplied_w)
-        self.influx_connector.set_time_step_data_point(esdl_id, "Curtailment_Limit_W", simulation_time, limit_w if limit_w != float('inf') else -1.0)
+        self.influx_connector.set_time_step_data_point(esdl_id, "Curtailment_Limit_W", simulation_time, limit_w)
+
+        # Periodic InfluxDB flush (once per simulated day).
+        if not hasattr(self, "_steps_since_flush"):
+            self._steps_since_flush = 0
+        self._steps_since_flush += 1
+        if self._steps_since_flush >= 96:
+            try:
+                if self.influx_connector.data_points:
+                    self.influx_connector.write_output()
+                    self.influx_connector.data_points.clear()
+            except Exception as exc:
+                LOGGER.warning("[Influx] Periodic flush failed: %s", exc)
+            self._steps_since_flush = 0
 
         return RenewableStateOutput(
             potential_available_generation_ID=potential_w,
@@ -216,10 +248,12 @@ class RenewableService(RenewableServiceBase):
 
     def renewable_dispatch(self, param_dict, simulation_time, time_step_number, esdl_id, energy_system):
         """Consumes the curtailment command from the Network Balancer and stores it."""
-        limit_w = float('inf')
+        limit_w = self._NO_CURTAILMENT
         for k, v in param_dict.items():
             if "current_max_power_limit" in k:
-                limit_w = float(v); break
+                raw = float(v)
+                limit_w = raw if math.isfinite(raw) else self._NO_CURTAILMENT
+                break
 
         self._curtailment_limit[esdl_id] = limit_w
         return {}

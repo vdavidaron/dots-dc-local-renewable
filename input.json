@@ -6,8 +6,8 @@
     "calculations": [
         {
             "name": "day_ahead_renewables",
-            "description": "Forecasts generation for the next day.",
-            "time_period_in_seconds": 86400,
+            "description": "Forecasts generation for the next 24h; fires twice a day (midnight + noon) to feed the rolling-horizon LP.",
+            "time_period_in_seconds": 43200,
             "offset_in_seconds": 1,
             "inputs": [],
             "outputs": [
