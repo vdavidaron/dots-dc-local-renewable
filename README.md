@@ -116,3 +116,9 @@ Build the container image using the local context:
 docker build -t local-renewable-service:latest .
 ```
         
+
+---
+
+## Thesis modifications (MSc)
+
+- **Nameplate-driven generation (PV-sizing fix).** Generation was previously `irradiance x surfaceArea x panel_eff x inverter_eff`, capped at nameplate. Because `surfaceArea` was a fixed ESDL value, sweeping the PV nameplate `power` was a no-op (only the cap, which rarely binds, changed), so every non-zero PV size produced the same yield. The effective collector area is now derived from the nameplate rating, `area = P_nom / (G_STC x panel_eff x inverter_eff)` with `G_STC = 1000 W/m^2`, so generation scales linearly with the swept capacity. This is what makes the RQ3 PV-sizing sweep meaningful.
